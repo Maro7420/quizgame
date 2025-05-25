@@ -13,12 +13,13 @@ import java.sql.*;
 
 public class MainApp extends Application {
 
-    private int currentUserId = -1;
+    private int currentUserId = -1; // Stores the ID of the currently logged-in user
 
     public static void main(String[] args) {
-        launch(args);
+        launch(args); // Launches the JavaFX application
     }
 
+    // Connects to the SQLite database
     private Connection connect() {
         try {
             return DriverManager.getConnection("jdbc:sqlite:quiz_game.db");
@@ -28,6 +29,7 @@ public class MainApp extends Application {
         }
     }
 
+    // Creates database tables if they do not exist
     private void setupDatabase() {
         try (Connection conn = connect()) {
             Statement stmt = conn.createStatement();
@@ -41,8 +43,9 @@ public class MainApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        setupDatabase();
+        setupDatabase(); // Set up database on start
 
+        // UI elements for login and registration
         TextField usernameField = new TextField();
         usernameField.setPromptText("Username");
 
@@ -56,6 +59,7 @@ public class MainApp extends Application {
         layout.setPadding(new Insets(20));
         layout.setAlignment(Pos.CENTER);
 
+        // Set button actions
         loginButton.setOnAction(e -> handleLogin(usernameField.getText(), passwordField.getText(), primaryStage));
         registerButton.setOnAction(e -> handleRegister(usernameField.getText(), passwordField.getText()));
 
@@ -65,6 +69,7 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
+    // Handles user login logic
     private void handleLogin(String username, String password, Stage stage) {
         if (username.isEmpty() || password.isEmpty()) {
             showAlert("Input Error", "Username and Password cannot be empty.");
@@ -78,8 +83,8 @@ public class MainApp extends Application {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                currentUserId = rs.getInt("id");
-                showGameMenu(stage);
+                currentUserId = rs.getInt("id"); // Save logged-in user ID
+                showGameMenu(stage); // Show main menu
             } else {
                 showAlert("Login Failed", "Incorrect username or password.");
             }
@@ -88,6 +93,7 @@ public class MainApp extends Application {
         }
     }
 
+    // Handles user registration logic
     private void handleRegister(String username, String password) {
         if (username.isEmpty() || password.isEmpty()) {
             showAlert("Input Error", "Username and Password cannot be empty.");
@@ -111,18 +117,20 @@ public class MainApp extends Application {
         }
     }
 
+    // Displays the difficulty selection menu
     private void showGameMenu(Stage stage) {
         Button easyBtn = new Button("Easy");
         Button mediumBtn = new Button("Medium");
         Button hardBtn = new Button("Hard");
         Button logoutBtn = new Button("Logout");
 
+        // Set actions for difficulty buttons
         easyBtn.setOnAction(e -> startQuiz(stage, "Easy"));
         mediumBtn.setOnAction(e -> startQuiz(stage, "Medium"));
         hardBtn.setOnAction(e -> startQuiz(stage, "Hard"));
         logoutBtn.setOnAction(e -> {
-            currentUserId = -1;
-            start(stage);
+            currentUserId = -1; // Reset user ID on logout
+            start(stage); // Return to login screen
         });
 
         VBox menuLayout = new VBox(15, new Label("Select Difficulty"), easyBtn, mediumBtn, hardBtn, logoutBtn);
@@ -133,11 +141,14 @@ public class MainApp extends Application {
         stage.setScene(menuScene);
     }
 
+    // Starts the quiz
     private void startQuiz(Stage stage, String level) {
         playQuiz(stage, level);
     }
 
+    // Displays and runs the quiz
     private void playQuiz(Stage stage, String level) {
+        // Define questions for each difficulty
         String[][] easyQuestions = {
                 {"What is 2 + 2?", "3", "4", "5", "6", "4"},
                 {"What color is the sky?", "Blue", "Green", "Red", "Yellow", "Blue"},
@@ -167,6 +178,7 @@ public class MainApp extends Application {
                 {"Who is known as the father of modern computers?", "Charles Babbage", "Alan Turing", "John Von Neumann", "Bill Gates", "Charles Babbage"}
         };
 
+        // Select questions based on chosen level
         String[][] selectedQuestions = switch (level) {
             case "Easy" -> easyQuestions;
             case "Medium" -> mediumQuestions;
@@ -179,14 +191,14 @@ public class MainApp extends Application {
         Collections.shuffle(questionList);
         selectedQuestions = questionList.toArray(new String[0][]);
 
-        final int[] index = {0};
-        final int[] score = {0};
+        final int[] index = {0}; // Current question index
+        final int[] score = {0}; // User score
 
         Label questionLabel = new Label();
         ToggleGroup optionsGroup = new ToggleGroup();
         VBox optionsBox = new VBox(5);
         Button nextBtn = new Button("Next");
-        nextBtn.setDisable(true); // disable next until answer selected
+        nextBtn.setDisable(true); // Disable until an option is selected
 
         VBox quizBox = new VBox(10, questionLabel, optionsBox, nextBtn);
         quizBox.setPadding(new Insets(20));
@@ -195,6 +207,8 @@ public class MainApp extends Application {
         Scene quizScene = new Scene(quizBox, 400, 300);
 
         String[][] finalSelectedQuestions = selectedQuestions;
+
+        // Loads a new question to the screen
         Runnable loadQuestion = () -> {
             if (index[0] < finalSelectedQuestions.length) {
                 String[] q = finalSelectedQuestions[index[0]];
@@ -213,7 +227,7 @@ public class MainApp extends Application {
                     nextBtn.setDisable(newToggle == null);
                 });
             } else {
-                showFinalScore(stage, score[0], level);
+                showFinalScore(stage, score[0], level); // Show final score when done
             }
         };
 
@@ -221,16 +235,17 @@ public class MainApp extends Application {
         nextBtn.setOnAction(e -> {
             RadioButton selected = (RadioButton) optionsGroup.getSelectedToggle();
             if (selected != null && selected.getText().equals(finalSelectedQuestions1[index[0]][5])) {
-                score[0]++;
+                score[0]++; // Increase score for correct answer
             }
             index[0]++;
             loadQuestion.run();
         });
 
         stage.setScene(quizScene);
-        loadQuestion.run();
+        loadQuestion.run(); // Start quiz
     }
 
+    // Shows final score and saves it to the database
     private void showFinalScore(Stage stage, int score, String level) {
         Label label = new Label("You scored: " + score);
         Button backButton = new Button("Back to Menu");
@@ -258,6 +273,7 @@ public class MainApp extends Application {
         stage.setScene(new Scene(layout, 300, 200));
     }
 
+    // Displays alerts to the user
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
