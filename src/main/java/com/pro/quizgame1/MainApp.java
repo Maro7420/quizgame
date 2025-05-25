@@ -1,10 +1,12 @@
 package com.pro.quizgame1;
 
 import javafx.application.Application;
+import javafx.beans.property.*;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
@@ -123,6 +125,7 @@ public class MainApp extends Application {
         Button mediumBtn = new Button("Medium");
         Button hardBtn = new Button("Hard");
         Button logoutBtn = new Button("Logout");
+        Button showScoresBtn = new Button("Show Scores"); // New button
 
         // Set actions for difficulty buttons
         easyBtn.setOnAction(e -> startQuiz(stage, "Easy"));
@@ -132,12 +135,13 @@ public class MainApp extends Application {
             currentUserId = -1; // Reset user ID on logout
             start(stage); // Return to login screen
         });
+        showScoresBtn.setOnAction(e -> showScoresWindow()); // Action for new button
 
-        VBox menuLayout = new VBox(15, new Label("Select Difficulty"), easyBtn, mediumBtn, hardBtn, logoutBtn);
+        VBox menuLayout = new VBox(15, new Label("Select Difficulty"), easyBtn, mediumBtn, hardBtn, showScoresBtn, logoutBtn);
         menuLayout.setAlignment(Pos.CENTER);
         menuLayout.setPadding(new Insets(20));
 
-        Scene menuScene = new Scene(menuLayout, 300, 250);
+        Scene menuScene = new Scene(menuLayout, 300, 300);
         stage.setScene(menuScene);
     }
 
@@ -280,5 +284,98 @@ public class MainApp extends Application {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    // Method to show all users and scores in a new window
+    private void showScoresWindow() {
+        Stage scoreStage = new Stage();
+        scoreStage.setTitle("All User Scores");
+
+        TableView<ScoreEntry> table = new TableView<>();
+
+        TableColumn<ScoreEntry, String> userCol = new TableColumn<>("Username");
+        userCol.setCellValueFactory(new PropertyValueFactory<>("username"));
+
+        TableColumn<ScoreEntry, String> levelCol = new TableColumn<>("Level");
+        levelCol.setCellValueFactory(new PropertyValueFactory<>("level"));
+
+        TableColumn<ScoreEntry, Integer> scoreCol = new TableColumn<>("Score");
+        scoreCol.setCellValueFactory(new PropertyValueFactory<>("score"));
+
+        table.getColumns().addAll(userCol, levelCol, scoreCol);
+
+        // Load data from DB
+        try (Connection conn = connect()) {
+            String sql = "SELECT users.username, scores.level, scores.score FROM scores " +
+                    "JOIN users ON users.id = scores.user_id " +
+                    "ORDER BY users.username";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String username = rs.getString("username");
+                String level = rs.getString("level");
+                int score = rs.getInt("score");
+                table.getItems().add(new ScoreEntry(username, level, score));
+            }
+        } catch (Exception e) {
+            showAlert("DB Error", e.getMessage());
+        }
+
+        VBox root = new VBox(table);
+        root.setPadding(new Insets(10));
+        root.setPrefSize(400, 300);
+
+        scoreStage.setScene(new Scene(root));
+        scoreStage.show();
+    }
+
+    // Helper class for table entries
+    public static class ScoreEntry {
+        private final SimpleStringProperty username;
+        private final SimpleStringProperty level;
+        private final SimpleIntegerProperty score;
+
+        public ScoreEntry(String username, String level, int score) {
+            this.username = new SimpleStringProperty(username);
+            this.level = new SimpleStringProperty(level);
+            this.score = new SimpleIntegerProperty(score);
+        }
+
+        public String getUsername() {
+            return username.get();
+        }
+
+        public void setUsername(String username) {
+            this.username.set(username);
+        }
+
+        public StringProperty usernameProperty() {
+            return username;
+        }
+
+        public String getLevel() {
+            return level.get();
+        }
+
+        public void setLevel(String level) {
+            this.level.set(level);
+        }
+
+        public StringProperty levelProperty() {
+            return level;
+        }
+
+        public int getScore() {
+            return score.get();
+        }
+
+        public void setScore(int score) {
+            this.score.set(score);
+        }
+
+        public IntegerProperty scoreProperty() {
+            return score;
+        }
     }
 }
